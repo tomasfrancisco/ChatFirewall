@@ -11,21 +11,27 @@
 #include <stdio.h>
 #include <netdb.h>
 #include <string.h>
+#include <signal.h>
 
-#define SERVER_PORT 9001
+#define SERVER_PORT 1500
 #define BUF_SIZE 1024
+#define USERSIZE 100
 
 void process_client(int fd);
+void process_server(int server_fd, char* username);
 void erro(char *msg);
-int check_vowel(char c);
-void delete_vowels(char *buffer, char *buffer_to_client);
+
 
 int main(int argc, char * argv[]) 
 {
 	int fd, client, server;
 	struct sockaddr_in addr, client_addr;
 	int client_addr_size;
-	char username[100];
+	char username[USERSIZE];
+
+	pid_t pid;
+
+	char username_client[USERSIZE];
 
 	if (argc != 2){
 		printf("server <username>\n");
@@ -49,7 +55,7 @@ int main(int argc, char * argv[])
 		erro("na funcao listen");
 
 	strcpy(username,argv[1]);
-	
+	printf("A aguardar ligação...\n");
 	while (1) 
 	{
 		client_addr_size = sizeof(client_addr);
@@ -58,7 +64,13 @@ int main(int argc, char * argv[])
 		server = client;
 		if (client > 0)	//Se recebeu ligação cria um processo
 		{
-			if (fork() == 0) 
+			printf("A receber ligação...\n");
+			
+			username_client[0] = '\0';
+			read(fd, username_client, USERSIZE-1);
+
+			printf("Ligação efectuada com %s\n", username_client);
+			if ((pid = fork()) == 0) 
 			{
 				close(fd);
 				process_client(client);
@@ -68,7 +80,7 @@ int main(int argc, char * argv[])
 			{
 				close(fd);
 				process_server(server,username);
-				exit(0);
+				kill(pid, SIGTERM);
 			}
 			close(client);
 			close(server);
@@ -77,47 +89,48 @@ int main(int argc, char * argv[])
 	return 0;
 }
 
+
 void process_client(int client_fd)
 {
 	int nread = 0;
 	char buffer[BUF_SIZE];
-	char buffer_to_client[BUF_SIZE];
 
 	//------ Leitura do cliente ----------
 	while(1)
 	{
+		printf("%c[2K", 27);
 		nread = read(client_fd, buffer, BUF_SIZE-1);
-		buffer[nread-2] = '\0';
+		buffer[nread - 2] = '\0';	//Termina a string
 		puts(buffer);
 		fflush(stdout);								//Limpa o buffer de saida
+		fflush(stdin);
 	}
 	
 	close(client_fd);
 }
 
-void process_server(int server_fd, char* username)
+void process_server(int server_fd, char *username)
 {
 	char buffer[BUF_SIZE];
 	char usersay[200];
-	usersay[0]='\0';
 	char final[BUF_SIZE + 200];
 	final[0] = '\0';
-
-	sprintf(usersay, "%s disse: ", username);
-
+	
+	sprintf(usersay,"%s disse: ", username);	
 	while(1)
-	{
-		fgets(&buffer, BUF_SIZE -1, stdin);
+	{		
+		fgets(buffer, BUF_SIZE - 1, stdin);
 
-		if(strcmp(buffer, ".quit"))
+		if(strcmp(buffer, ".quit\n") == 0)
 		{
 			break;
 		}
 
-		strcat(final,usersay);
+		strcat(final, usersay);
 		strcat(final, buffer);
-		write(server_fd,final,1+strlen(final));	//Escreve para o servidor
-		final[0] ='\0';
+
+		write(server_fd, final, 1+strlen(final));	//Escreve para o servidor
+		final[0] = '\0';
 	}
 }
 

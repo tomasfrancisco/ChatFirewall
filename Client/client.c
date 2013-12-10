@@ -48,7 +48,7 @@ int main(int argc, char * argv[]){
 
 	//*********************************************** Aguarda pergunta pelo ip e porta **********************************
 	nread = read(fd, buffer, BUF_SIZE-1);
-	buffer[nread - 2] = '\0';	//Termina a string
+	buffer[nread - 1] = '\0';	//Termina a string
 	puts(buffer);
 	fflush(stdout);								//Limpa o buffer de saida
 	fflush(stdin);
@@ -59,7 +59,7 @@ int main(int argc, char * argv[]){
 	final[0] = '\0';
 
 	nread = read(fd, buffer, BUF_SIZE-1);
-	buffer[nread - 2] = '\0';	//Termina a string
+	buffer[nread - 1] = '\0';	//Termina a string
 	puts(buffer);
 	fflush(stdout);								//Limpa o buffer de saida
 	fflush(stdin);
@@ -69,8 +69,11 @@ int main(int argc, char * argv[]){
 	write(fd, final, 1+strlen(final));	//Escreve para o servidor
 	final[0] = '\0';
 	//*********************************************** Aguarda pergunta pelo ip e porta **********************************
-	
+	fflush(stdin);
 	strcpy(username,argv[3]);
+	write(fd, username, 1 + strlen(username));	//Escreve para o servidor o user
+	printf("username: %s\n", username);
+
 	if (fork() == 0) 
 	{
 		process_client(fd);
@@ -93,6 +96,7 @@ void process_client(int client_fd)
 	//------ Leitura do cliente ----------
 	while(1)
 	{
+		printf("%c[2K", 27);
 		nread = read(client_fd, buffer, BUF_SIZE-1);
 		buffer[nread - 2] = '\0';	//Termina a string
 		puts(buffer);

@@ -8,12 +8,13 @@
 #include <string.h>
 #include <signal.h>
 
-#define FIREWALL_PORT 9000
+#define FIREWALL_PORT 2000
 
 #define IPSIZE 100
 #define ANSSIZE 100
 #define PORTSIZE 100
 #define BUF_SIZE 1024
+#define USERSIZE 100
 
 void erro(char *msg);
 void process_client(int client_fd, int server_fd);
@@ -29,9 +30,11 @@ int main(int argc, char * argv[]){
 	char ans[ANSSIZE];
 	char ip[IPSIZE];
 	char port[PORTSIZE];
-	int nread;
 
 	pid_t pid;
+
+	int nread = 0;
+	char username_client[USERSIZE];
 
 	char username[100] = "admin";
 	char usertemp[100];
@@ -54,7 +57,7 @@ int main(int argc, char * argv[]){
 		break;
 	}
 	printf("Bem vindo!\n");
-	printf("A aguardar ligação...");
+	
 
 	//************************************************************************************************ Recebe ligação do client.c 
 	bzero((void *) &client_addr, sizeof(client_addr));
@@ -65,6 +68,7 @@ int main(int argc, char * argv[]){
 	//int socket(int domain, int type, int protocol) = Descritor de socket
 	if ( (fdclient = socket(AF_INET, SOCK_STREAM, 0)) < 0)	//Cria um novo socket; fd = descritor do socket
 		erro("na funcao socket");
+
 	
 	//int bind(int fd, const struct sockaddr *address, socklen_t address_len) = 0 se sucesso, -1 se erro
 	if ( bind(fdclient,(struct sockaddr*)&client_addr,sizeof(client_addr)) < 0)	//Associa um socket a um determinado endereço
@@ -77,7 +81,7 @@ int main(int argc, char * argv[]){
 	if( listen(fdclient, 5) < 0)
 		erro("na funcao listen");
 
-	printf("A receber ligação...");
+	printf("A aguardar ligação...\n");
 	while(1)
 	{
 		client_addr_size = sizeof(client_addr);
@@ -85,12 +89,13 @@ int main(int argc, char * argv[]){
 
 		if(client > 0)
 		{
+			printf("A receber ligação...\n");			
 			sprintf(ans, "Insira o ip do servidor: ");
 			write(client, ans, 1+strlen(ans));	//Pede o ip do servidor ao cliente
 			ans[0] = '\0';
 
 			nread = read(client, ip, IPSIZE-1);
-			ip[nread] = '\0';						//Termina a string
+			ip[nread - 2] = '\0';						//Termina a string
 			printf("%s\n", ip);
 			fflush(stdout);								//Limpa o buffer de saida
 
@@ -99,7 +104,7 @@ int main(int argc, char * argv[]){
 			ans[0] = '\0';
 
 			nread = read(client, port, PORTSIZE-1);
-			port[nread] = '\0';						//Termina a string
+			port[nread - 2] = '\0';						//Termina a string
 			printf("%s\n", port);
 			fflush(stdout);	
 			break;
@@ -107,6 +112,7 @@ int main(int argc, char * argv[]){
 	}
 
 	//*********************************************************************************************** Efectua a ligação ao server.c
+	printf("%s\n", ip);
 	if ((hostPtr = gethostbyname(ip)) == 0)	//Encontra a ligação através do nome
 		erro("Nao consegui obter o endereço");
 
@@ -125,6 +131,12 @@ int main(int argc, char * argv[]){
 	
 	if (client > 0)	//Se a ligação ainda existir
 	{
+		username_client[0] = '\0';
+		nread = read(client, username_client, USERSIZE-1);
+		//username_client[nread] = '\0';	//Termina a string
+		write(fdserver, username_client, 1+strlen(username_client));	//Escreve para o servidor
+		printf("username: %s\n", username_client);
+
 		if ((pid = fork()) == 0) 
 		{
 			close(fdclient);
@@ -151,9 +163,10 @@ void process_client(int client_fd, int server_fd)
 	//------ Leitura do cliente ----------
 	while(1)
 	{
+		fflush(stdin);
 		nread = read(client_fd, buffer, BUF_SIZE-1);
-		buffer[nread-2] = '\0';
-		puts(buffer);
+		buffer[nread - 1] = '\0';
+		printf("--%s\n", buffer);
 		fflush(stdout);								//Limpa o buffer de saida
 
 		if(strstr(buffer, ".quit") != NULL)
